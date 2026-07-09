@@ -1,0 +1,36 @@
+using CvRag.Api.Controllers;
+using CvRag.Api.Data;
+using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Mvc;
+using Xunit;
+
+namespace CvRag.Tests;
+
+public class CvsControllerTests
+{
+    private static CvRagDbContext CreateInMemoryDb()
+    {
+        var options = new DbContextOptionsBuilder<CvRagDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        return new CvRagDbContext(options);
+    }
+
+    [Fact]
+    public async Task Upload_SavesCvDocumentAndReturnsCreated()
+    {
+        var db = CreateInMemoryDb();
+        var controller = new CvsController(db);
+
+        var bytes = await File.ReadAllBytesAsync(
+            Path.Combine(AppContext.BaseDirectory, "Fixtures", "sample.pdf"));
+        var formFile = new FormFile(new MemoryStream(bytes), 0, bytes.Length, "file", "sample.pdf");
+
+        var result = await controller.Upload(formFile);
+
+        var created = Assert.IsType<CreatedResult>(result);
+        Assert.Single(db.CvDocuments);
+        Assert.Contains("Ahmet Yilmaz", db.CvDocuments.First().RawText);
+    }
+}
