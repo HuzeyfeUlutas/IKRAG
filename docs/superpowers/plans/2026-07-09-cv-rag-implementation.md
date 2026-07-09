@@ -4,9 +4,11 @@
 
 **Goal:** CV havuzu üzerinde iş ilanına göre eşleştirme/puanlama ve tek CV üzerinde RAG tabanlı soru-cevap yapan bir .NET + React uygulaması kurmak; asıl amaç RAG ve vector DB kavramlarını uygulamalı öğrenmek.
 
-**Architecture:** ASP.NET Core Web API (monolith) + PostgreSQL/pgvector (EF Core, Npgsql) + `IEmbeddingProvider`/`IChatProvider` soyutlaması (önce Ollama, sonra opsiyonel OpenAI) + React (Vite, Tailwind) frontend. PDF metin çıkarma PdfPig ile.
+**Architecture:** ASP.NET Core Web API (monolith) + PostgreSQL/pgvector (EF Core, Npgsql) + `IEmbeddingProvider`/`IChatProvider` soyutlaması (önce Ollama, sonra opsiyonel OpenAI) + React (Vite, Tailwind) frontend. PDF metin çıkarma iText7 ile.
 
-**Tech Stack:** .NET 8, ASP.NET Core Web API, EF Core + Npgsql, Pgvector.EntityFrameworkCore, PostgreSQL 16 + pgvector extension, PdfPig, xUnit, Ollama (nomic-embed-text + llama3.1), React 18 + Vite + TypeScript + Tailwind CSS + React Router, Docker Compose.
+**Tech Stack:** .NET 8, ASP.NET Core Web API, EF Core + Npgsql, Pgvector.EntityFrameworkCore, PostgreSQL 16 + pgvector extension, iText7, xUnit, Ollama (nomic-embed-text + llama3.1), React 18 + Vite + TypeScript + Tailwind CSS + React Router, Docker Compose.
+
+> **Değişiklik notu (Task 5 sırasında):** Plan başlangıçta PdfPig'i öngörmüştü, ancak nuget.org'da `UglyToad.PdfPig` paketinin yalnızca iki şüpheli/normal-dışı sürümü (`0.1.9-alpha001-patch1`, `1.7.0-custom-5`) listeli çıktı — temiz bir stabil sürüm geçmişi yoktu. Kullanıcı onayıyla PDF metin çıkarma kütüphanesi **iText7**'ye değiştirildi (nuget.org'da temiz sürüm geçmişi 7.0.1→9.7.0, AGPL açık kaynak, öğrenme projesi için uygun).
 
 ## Global Constraints
 
@@ -390,35 +392,29 @@ git commit -m "feat: add CvDocument model, migration and list endpoint"
 
 ---
 
-## Task 5: PDF Metin Çıkarma Servisi (PdfPig)
+## Task 5: PDF Metin Çıkarma Servisi (iText7)
 
 **Files:**
 - Modify: `backend/src/CvRag.Api/CvRag.Api.csproj`
 - Create: `backend/src/CvRag.Api/Services/PdfTextExtractor.cs`
 - Create: `backend/tests/CvRag.Tests/PdfTextExtractorTests.cs`
-- Create (test fixture): `backend/tests/CvRag.Tests/Fixtures/sample.pdf`
+- Create (test fixture): `backend/tests/CvRag.Tests/Fixtures/sample.pdf` (zaten mevcut — controller tarafından elle oluşturuldu, PdfPig'in nuget.org'da şüpheli sürüm geçmişi nedeniyle reportlab denemesi atlandı)
 
 **Interfaces:**
 - Produces: `PdfTextExtractor.ExtractText(Stream pdfStream) : string` — statik metod, sonraki task'larda `CvsController` tarafından kullanılacak.
 
-- [ ] **Step 1: PdfPig paketini ekle**
+- [ ] **Step 1: iText7 paketini ekle**
 
-Run: `cd backend/src/CvRag.Api && dotnet add package UglyToad.PdfPig`
+Run: `cd backend/src/CvRag.Api && dotnet add package itext7`
+Expected: nuget.org'dan en güncel stabil sürüm (7.0.1→9.7.0 aralığında, prerelease olmayan) çözümlenir.
 
-- [ ] **Step 2: Test için basit bir örnek PDF oluştur**
+- [ ] **Step 2: Örnek PDF fixture'ının varlığını doğrula**
 
-Run (herhangi bir metin editörden PDF export edilebilir, ya da hızlıca `libreoffice`/`cupsfilter` yoksa Python ile):
+`backend/tests/CvRag.Tests/Fixtures/sample.pdf` zaten mevcut olmalı (controller tarafından elle, dış bağımlılık olmadan oluşturuldu). Doğrula:
 ```bash
-mkdir -p backend/tests/CvRag.Tests/Fixtures
-python3 -c "
-from reportlab.pdfgen import canvas
-c = canvas.Canvas('backend/tests/CvRag.Tests/Fixtures/sample.pdf')
-c.drawString(100, 750, 'Ahmet Yilmaz')
-c.drawString(100, 730, '5 yil backend gelistirici deneyimi')
-c.save()
-" 2>/dev/null || echo "reportlab yoksa: elle bir sample.pdf dosyasini bu yola koy, icinde 'Ahmet Yilmaz' ve 'backend gelistirici' gecsin"
+file backend/tests/CvRag.Tests/Fixtures/sample.pdf
 ```
-Expected: `backend/tests/CvRag.Tests/Fixtures/sample.pdf` var, içinde "Ahmet Yilmaz" metni geçiyor.
+Expected: `PDF document, version 1.4, 1 pages`. Dosya yoksa DUR ve controller'a bildir — kendi başına yeniden oluşturmaya çalışma.
 
 - [ ] **Step 3: Failing test'i yaz**
 
@@ -461,7 +457,7 @@ Expected: FAIL — "PdfTextExtractor bulunamadı" derleme hatası.
 `backend/src/CvRag.Api/Services/PdfTextExtractor.cs`:
 ```csharp
 using System.Text;
-using UglyToad.PdfPig;
+using iText.Kernel.Pdf;
 
 namespace CvRag.Api.Services;
 
@@ -469,16 +465,18 @@ public static class PdfTextExtractor
 {
     public static string ExtractText(Stream pdfStream)
     {
-        using var document = PdfDocument.Open(pdfStream);
+        using var pdfDocument = new PdfDocument(new PdfReader(pdfStream));
         var sb = new StringBuilder();
-        foreach (var page in document.GetPages())
+        for (int i = 1; i <= pdfDocument.GetNumberOfPages(); i++)
         {
-            sb.AppendLine(page.Text);
+            var page = pdfDocument.GetPage(i);
+            sb.AppendLine(iText.Kernel.Pdf.Canvas.Parser.PdfTextExtractor.GetTextFromPage(page));
         }
         return sb.ToString();
     }
 }
 ```
+**Not:** iText7'nin kendi metin çıkarma sınıfı da `PdfTextExtractor` adında (`iText.Kernel.Pdf.Canvas.Parser` namespace'inde) — isim çakışmasını önlemek için bu namespace'e `using` eklenmiyor, çağrı tam nitelikli (`iText.Kernel.Pdf.Canvas.Parser.PdfTextExtractor.GetTextFromPage(page)`) yapılıyor.
 
 - [ ] **Step 6: Testin geçtiğini doğrula**
 
