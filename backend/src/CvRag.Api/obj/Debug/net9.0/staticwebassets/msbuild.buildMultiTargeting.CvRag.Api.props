@@ -1,3 +1,0 @@
-﻿<Project>
-  <Import Project="../build/CvRag.Api.props" />
-</Project>
