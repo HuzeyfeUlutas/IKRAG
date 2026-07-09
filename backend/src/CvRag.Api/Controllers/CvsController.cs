@@ -10,8 +10,13 @@ namespace CvRag.Api.Controllers;
 public class CvsController : ControllerBase
 {
     private readonly CvRagDbContext _db;
+    private readonly Services.IEmbeddingProvider _embeddingProvider;
 
-    public CvsController(CvRagDbContext db) => _db = db;
+    public CvsController(CvRagDbContext db, Services.IEmbeddingProvider embeddingProvider)
+    {
+        _db = db;
+        _embeddingProvider = embeddingProvider;
+    }
 
     [HttpGet]
     public async Task<IActionResult> List()
@@ -33,10 +38,13 @@ public class CvsController : ControllerBase
         await using var stream = file.OpenReadStream();
         var text = Services.PdfTextExtractor.ExtractText(stream);
 
+        var embedding = await _embeddingProvider.EmbedAsync(text);
+
         var cv = new Models.CvDocument
         {
             FileName = file.FileName,
-            RawText = text
+            RawText = text,
+            EmbeddingVector = new Pgvector.Vector(embedding)
         };
         _db.CvDocuments.Add(cv);
         await _db.SaveChangesAsync();

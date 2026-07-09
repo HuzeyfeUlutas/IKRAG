@@ -7,6 +7,11 @@ using Xunit;
 
 namespace CvRag.Tests;
 
+public class FakeEmbeddingProvider : CvRag.Api.Services.IEmbeddingProvider
+{
+    public Task<float[]> EmbedAsync(string text) => Task.FromResult(new float[768]);
+}
+
 public class CvsControllerTests
 {
     private static CvRagDbContext CreateInMemoryDb()
@@ -21,7 +26,7 @@ public class CvsControllerTests
     public async Task Upload_SavesCvDocumentAndReturnsCreated()
     {
         var db = CreateInMemoryDb();
-        var controller = new CvsController(db);
+        var controller = new CvsController(db, new FakeEmbeddingProvider());
 
         var bytes = await File.ReadAllBytesAsync(
             Path.Combine(AppContext.BaseDirectory, "Fixtures", "sample.pdf"));
@@ -32,5 +37,6 @@ public class CvsControllerTests
         var created = Assert.IsType<CreatedResult>(result);
         Assert.Single(db.CvDocuments);
         Assert.Contains("Ahmet Yilmaz", db.CvDocuments.First().RawText);
+        Assert.NotNull(db.CvDocuments.First().EmbeddingVector);
     }
 }
