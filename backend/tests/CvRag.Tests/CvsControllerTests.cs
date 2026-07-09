@@ -38,5 +38,9 @@ public class CvsControllerTests
         Assert.Single(db.CvDocuments);
         Assert.Contains("Ahmet Yilmaz", db.CvDocuments.First().RawText);
         Assert.NotNull(db.CvDocuments.First().EmbeddingVector);
+
+        var chunks = db.CvChunks.Where(c => c.CvDocumentId == db.CvDocuments.First().Id).ToList();
+        Assert.NotEmpty(chunks);
+        Assert.All(chunks, c => Assert.NotNull(c.EmbeddingVector));
     }
 }

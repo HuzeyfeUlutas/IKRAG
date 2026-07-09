@@ -47,6 +47,20 @@ public class CvsController : ControllerBase
             EmbeddingVector = new Pgvector.Vector(embedding)
         };
         _db.CvDocuments.Add(cv);
+
+        var chunkTexts = Services.TextChunker.Split(text);
+        for (int i = 0; i < chunkTexts.Count; i++)
+        {
+            var chunkEmbedding = await _embeddingProvider.EmbedAsync(chunkTexts[i]);
+            _db.CvChunks.Add(new Models.CvChunk
+            {
+                CvDocumentId = cv.Id,
+                ChunkText = chunkTexts[i],
+                ChunkIndex = i,
+                EmbeddingVector = new Pgvector.Vector(chunkEmbedding)
+            });
+        }
+
         await _db.SaveChangesAsync();
 
         return Created($"/api/cvs/{cv.Id}", new { cv.Id, cv.FileName, cv.CreatedAt });
