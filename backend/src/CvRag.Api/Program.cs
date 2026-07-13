@@ -17,6 +17,12 @@ builder.Services.AddHttpClient<IEmbeddingProvider, OllamaEmbeddingProvider>(clie
     client.BaseAddress = new Uri(baseUrl);
 });
 
+builder.Services.AddHttpClient<IChatProvider, OllamaChatProvider>(client =>
+{
+    var baseUrl = builder.Configuration["Ollama:BaseUrl"] ?? "http://localhost:11434";
+    client.BaseAddress = new Uri(baseUrl);
+});
+
 builder.Services.AddControllers();
 
 var app = builder.Build();
