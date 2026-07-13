@@ -9,6 +9,7 @@ public class CvRagDbContext : DbContext
 
     public DbSet<CvDocument> CvDocuments => Set<CvDocument>();
     public DbSet<CvChunk> CvChunks => Set<CvChunk>();
+    public DbSet<JobPosting> JobPostings => Set<JobPosting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -23,6 +24,10 @@ public class CvRagDbContext : DbContext
             modelBuilder.Entity<CvChunk>()
                 .Property(c => c.EmbeddingVector)
                 .HasColumnType("vector(768)");
+
+            modelBuilder.Entity<JobPosting>()
+                .Property(j => j.EmbeddingVector)
+                .HasColumnType("vector(768)");
         }
         else
         {
@@ -30,6 +35,7 @@ public class CvRagDbContext : DbContext
             // cannot map the Vector type; exclude it from the model for those providers.
             modelBuilder.Entity<CvDocument>().Ignore(c => c.EmbeddingVector);
             modelBuilder.Entity<CvChunk>().Ignore(c => c.EmbeddingVector);
+            modelBuilder.Entity<JobPosting>().Ignore(j => j.EmbeddingVector);
         }
 
         base.OnModelCreating(modelBuilder);
