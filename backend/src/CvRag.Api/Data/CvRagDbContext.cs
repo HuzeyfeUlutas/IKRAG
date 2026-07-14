@@ -11,6 +11,7 @@ public class CvRagDbContext : DbContext
     public DbSet<CvChunk> CvChunks => Set<CvChunk>();
     public DbSet<JobPosting> JobPostings => Set<JobPosting>();
     public DbSet<MatchResult> MatchResults => Set<MatchResult>();
+    public DbSet<ChatMessageEntity> ChatMessages => Set<ChatMessageEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

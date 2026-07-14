@@ -24,6 +24,7 @@ builder.Services.AddHttpClient<IChatProvider, OllamaChatProvider>(client =>
 });
 
 builder.Services.AddScoped<MatchingService>();
+builder.Services.AddScoped<CvChatService>();
 
 builder.Services.AddControllers();
 

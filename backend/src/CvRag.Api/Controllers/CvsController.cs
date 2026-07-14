@@ -11,11 +11,29 @@ public class CvsController : ControllerBase
 {
     private readonly CvRagDbContext _db;
     private readonly Services.IEmbeddingProvider _embeddingProvider;
+    private readonly Services.CvChatService _chatService;
 
-    public CvsController(CvRagDbContext db, Services.IEmbeddingProvider embeddingProvider)
+    public CvsController(CvRagDbContext db, Services.IEmbeddingProvider embeddingProvider, Services.CvChatService chatService)
     {
         _db = db;
         _embeddingProvider = embeddingProvider;
+        _chatService = chatService;
+    }
+
+    public class ChatRequest
+    {
+        public string Question { get; set; } = string.Empty;
+    }
+
+    [HttpPost("{id}/chat")]
+    public async Task<IActionResult> Chat(Guid id, [FromBody] ChatRequest request)
+    {
+        var exists = await _db.CvDocuments.AnyAsync(c => c.Id == id);
+        if (!exists)
+            return NotFound(new { error = "CV bulunamadı." });
+
+        var answer = await _chatService.AskAsync(id, request.Question);
+        return Ok(new { answer });
     }
 
     [HttpGet]

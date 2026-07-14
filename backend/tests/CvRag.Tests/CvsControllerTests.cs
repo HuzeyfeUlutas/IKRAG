@@ -26,7 +26,8 @@ public class CvsControllerTests
     public async Task Upload_SavesCvDocumentAndReturnsCreated()
     {
         var db = CreateInMemoryDb();
-        var controller = new CvsController(db, new FakeEmbeddingProvider());
+        var chatService = new CvRag.Api.Services.CvChatService(db, new FakeEmbeddingProvider(), new RecordingChatProvider(""));
+        var controller = new CvsController(db, new FakeEmbeddingProvider(), chatService);
 
         var bytes = await File.ReadAllBytesAsync(
             Path.Combine(AppContext.BaseDirectory, "Fixtures", "sample.pdf"));
