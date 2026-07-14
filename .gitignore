@@ -1,3 +1,21 @@
-.claude/
-.DS_Store
+# .NET build artifacts
+bin/
+obj/
+
+# Node
+node_modules/
+dist/
+
+# IDE
+.vs/
+.vscode/
 .idea/
+*.user
+*.sln.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code worktrees
+.claude/
