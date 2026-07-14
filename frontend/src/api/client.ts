@@ -17,3 +17,26 @@ export async function uploadCv(file: File): Promise<CvSummary> {
   if (!res.ok) throw new Error("CV yüklenemedi");
   return res.json();
 }
+
+export interface MatchResultItem {
+  cvDocumentId: string;
+  similarityScore: number;
+  llmScore: number;
+  llmReasoning: string;
+}
+
+export async function createJobPosting(text: string): Promise<{ id: string }> {
+  const res = await fetch("/api/job-postings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) throw new Error("İlan kaydedilemedi");
+  return res.json();
+}
+
+export async function matchJobPosting(jobId: string): Promise<MatchResultItem[]> {
+  const res = await fetch(`/api/job-postings/${jobId}/match`, { method: "POST" });
+  if (!res.ok) throw new Error("Eşleştirme başarısız");
+  return res.json();
+}
