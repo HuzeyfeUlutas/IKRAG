@@ -40,3 +40,14 @@ export async function matchJobPosting(jobId: string): Promise<MatchResultItem[]>
   if (!res.ok) throw new Error("Eşleştirme başarısız");
   return res.json();
 }
+
+export async function chatWithCv(cvId: string, question: string): Promise<string> {
+  const res = await fetch(`/api/cvs/${cvId}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question }),
+  });
+  if (!res.ok) throw new Error("Chat isteği başarısız");
+  const data = await res.json();
+  return data.answer;
+}
