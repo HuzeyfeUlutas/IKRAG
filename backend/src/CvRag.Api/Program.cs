@@ -23,6 +23,8 @@ builder.Services.AddHttpClient<IChatProvider, OllamaChatProvider>(client =>
     client.BaseAddress = new Uri(baseUrl);
 });
 
+builder.Services.AddScoped<MatchingService>();
+
 builder.Services.AddControllers();
 
 var app = builder.Build();

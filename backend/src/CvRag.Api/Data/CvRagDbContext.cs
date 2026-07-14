@@ -10,6 +10,7 @@ public class CvRagDbContext : DbContext
     public DbSet<CvDocument> CvDocuments => Set<CvDocument>();
     public DbSet<CvChunk> CvChunks => Set<CvChunk>();
     public DbSet<JobPosting> JobPostings => Set<JobPosting>();
+    public DbSet<MatchResult> MatchResults => Set<MatchResult>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -1,5 +1,6 @@
 using CvRag.Api.Controllers;
 using CvRag.Api.Data;
+using CvRag.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 using Xunit;
@@ -20,7 +21,8 @@ public class JobPostingsControllerTests
     public async Task Create_SavesJobPostingWithEmbedding()
     {
         var db = CreateInMemoryDb();
-        var controller = new JobPostingsController(db, new FakeEmbeddingProvider());
+        var matchingService = new MatchingService(db, new MatchingServiceTests.FakeChatProvider("{\"score\": 0, \"reasoning\": \"\"}"));
+        var controller = new JobPostingsController(db, new FakeEmbeddingProvider(), matchingService);
 
         var result = await controller.Create(new JobPostingsController.CreateRequest
         {

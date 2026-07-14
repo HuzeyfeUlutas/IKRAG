@@ -12,6 +12,9 @@ public class MatchingServiceTests : IDisposable
     private readonly CvRagDbContext _db;
     private CvDocument? _closeCv;
     private CvDocument? _farCv;
+    private CvDocument? _scoreCv;
+    private JobPosting? _scoreJob;
+    private List<MatchResult> _createdMatchResults = new();
 
     public MatchingServiceTests()
     {
@@ -40,12 +43,41 @@ public class MatchingServiceTests : IDisposable
         _db.CvDocuments.AddRange(_closeCv, _farCv);
         await _db.SaveChangesAsync();
 
-        var service = new MatchingService(_db);
+        var fakeChat = new FakeChatProvider("{\"score\": 0, \"reasoning\": \"\"}");
+        var service = new MatchingService(_db, fakeChat);
         var jobEmbedding = new Vector(MakeVector(1.0f));
 
         var results = await service.FindTopCandidatesAsync(jobEmbedding, topN: 2);
 
         Assert.Equal("close.pdf", results[0].Cv.FileName);
+    }
+
+    [Fact]
+    public async Task ScoreAndRankAsync_UsesLlmToScoreTopCandidates()
+    {
+        _scoreCv = new CvDocument { FileName = "aday.pdf", RawText = "5 yil .NET deneyimi", EmbeddingVector = new Vector(MakeVector(0.9f)) };
+        _db.CvDocuments.Add(_scoreCv);
+        _scoreJob = new JobPosting { RawText = ".NET Backend Developer araniyoo", EmbeddingVector = new Vector(MakeVector(1.0f)) };
+        _db.JobPostings.Add(_scoreJob);
+        await _db.SaveChangesAsync();
+
+        var fakeChat = new FakeChatProvider("{\"score\": 85, \"reasoning\": \"Gucli .NET deneyimi var.\"}");
+        var service = new MatchingService(_db, fakeChat);
+
+        var results = await service.ScoreAndRankAsync(_scoreJob, topN: 1);
+        _createdMatchResults = results;
+
+        Assert.Single(results);
+        Assert.Equal(85, results[0].LlmScore);
+        Assert.Equal("Gucli .NET deneyimi var.", results[0].LlmReasoning);
+    }
+
+    public class FakeChatProvider : IChatProvider
+    {
+        private readonly string _response;
+        public FakeChatProvider(string response) => _response = response;
+        public Task<string> CompleteAsync(string systemPrompt, List<(string Role, string Content)> history, string userMessage)
+            => Task.FromResult(_response);
     }
 
     private static float[] MakeVector(float value)
@@ -81,15 +113,32 @@ public class MatchingServiceTests : IDisposable
     public void Dispose()
     {
         // Only remove the rows this test created — never the whole shared table.
-        var idsToRemove = new[] { _closeCv?.Id ?? Guid.Empty, _farCv?.Id ?? Guid.Empty }
+        var matchIds = _createdMatchResults.Select(m => m.Id).ToArray();
+        if (matchIds.Length > 0)
+        {
+            var matchesToRemove = _db.MatchResults.Where(m => matchIds.Contains(m.Id));
+            _db.MatchResults.RemoveRange(matchesToRemove);
+        }
+
+        var cvIds = new[] { _closeCv?.Id ?? Guid.Empty, _farCv?.Id ?? Guid.Empty, _scoreCv?.Id ?? Guid.Empty }
             .Where(id => id != Guid.Empty)
             .ToArray();
-        if (idsToRemove.Length > 0)
+        if (cvIds.Length > 0)
         {
-            var toRemove = _db.CvDocuments.Where(c => idsToRemove.Contains(c.Id));
-            _db.CvDocuments.RemoveRange(toRemove);
-            _db.SaveChanges();
+            var cvsToRemove = _db.CvDocuments.Where(c => cvIds.Contains(c.Id));
+            _db.CvDocuments.RemoveRange(cvsToRemove);
         }
+
+        var jobIds = new[] { _scoreJob?.Id ?? Guid.Empty }
+            .Where(id => id != Guid.Empty)
+            .ToArray();
+        if (jobIds.Length > 0)
+        {
+            var jobsToRemove = _db.JobPostings.Where(j => jobIds.Contains(j.Id));
+            _db.JobPostings.RemoveRange(jobsToRemove);
+        }
+
+        _db.SaveChanges();
         _db.Dispose();
     }
 }

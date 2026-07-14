@@ -10,11 +10,13 @@ public class JobPostingsController : ControllerBase
 {
     private readonly CvRagDbContext _db;
     private readonly IEmbeddingProvider _embeddingProvider;
+    private readonly MatchingService _matchingService;
 
-    public JobPostingsController(CvRagDbContext db, IEmbeddingProvider embeddingProvider)
+    public JobPostingsController(CvRagDbContext db, IEmbeddingProvider embeddingProvider, MatchingService matchingService)
     {
         _db = db;
         _embeddingProvider = embeddingProvider;
+        _matchingService = matchingService;
     }
 
     public class CreateRequest
@@ -38,5 +40,25 @@ public class JobPostingsController : ControllerBase
         await _db.SaveChangesAsync();
 
         return Created($"/api/job-postings/{posting.Id}", new { posting.Id, posting.CreatedAt });
+    }
+
+    [HttpPost("{id}/match")]
+    public async Task<IActionResult> Match(Guid id, [FromQuery] int topN = 10)
+    {
+        var job = await _db.JobPostings.FindAsync(id);
+        if (job is null)
+            return NotFound(new { error = "İlan bulunamadı." });
+
+        var results = await _matchingService.ScoreAndRankAsync(job, topN);
+
+        var response = results.Select(r => new
+        {
+            r.CvDocumentId,
+            r.SimilarityScore,
+            r.LlmScore,
+            r.LlmReasoning
+        });
+
+        return Ok(response);
     }
 }
